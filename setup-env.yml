@@ -1,0 +1,82 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: false
+  tasks:
+  - name: Install docker packages
+    remote_user: mouna
+    apt:
+      name: ['apt-transport-https','ca-certificates', 'curl', 'software-properties-common']
+      state: present
+      update_cache: yes
+    tags:
+      - docker
+  - name: Add Docker s GPG key for ubuntu from official site
+    remote_user: mouna
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+    tags:
+      - docker
+  - name: Verify gpg key with the fingerprint
+    remote_user: mouna
+    apt_key:
+      id: 0EBFCD88
+      state: present
+    tags:
+      - docker
+  - name: Update apt packages
+    remote_user: mouna
+    apt:
+      update_cache: yes
+    tags:
+    - docker
+  - name: Install docker-ce
+    remote_user: mouna
+    apt:
+      name: docker-ce
+      state: present
+      update_cache: yes
+    tags:
+      - docker
+  - name: Add "ubuntu" user to "docker" group
+    remote_user: mouna
+    user:
+      name: "{{ ansible_user }}"
+      groups: sudo
+      append: yes
+    become: yes
+    tags:
+      - docker
+  - name: Install docker-compose from official github repo
+    remote_user: mouna
+    get_url:
+      url : https://github.com/docker/compose/releases/download/v2.27.2/docker-compose-linux-x86_64
+      dest: /usr/local/bin/docker-compose
+      mode: 'u+x,g+x'
+  - name: Check if Git is installed
+    command: git --version
+    register: git_installed
+    ignore_errors: yes
+
+  - name: Install Git
+    apt:
+      name: git
+      state: present
+    when: git_installed.rc != 0
+
+  - name: Check Docker version
+    command: docker --version
+    register: docker_version
+    changed_when: false
+    failed_when: docker_version.rc != 0
+    tags:
+      - docker
+
+  - name: Run hello-world Docker container
+    command: docker run hello-world
+    register: hello_world_output
+    become: false
+    ignore_errors: yes
+    tags:
+      - docker
